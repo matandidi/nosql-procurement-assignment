@@ -3,3 +3,5 @@ screenshots/originals/
 *.docx
 *.pptx
 ~$*
+node_modules/
+.netlify/

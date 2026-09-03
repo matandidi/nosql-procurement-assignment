@@ -80,6 +80,16 @@ VALIDATION PASSED
 
 הנתונים כבר טעונים ב-`Cluster0Test`. כדי להריץ שאילתת מחקר בלי קוד מקומי: Data Explorer → האוסף המתאים (`items` לשאלה 1, `purchase_orders` לשאלות 2–3) → לשונית Aggregations → מצב Text → הדבקת ה-pipeline מתוך `mongodb/pipelines.js` (או מהמסמך) → Run. כך הופקו הצילומים 07–09 ב-3.9.2026.
 
+## אפליקציית ווב (בונוס) — `app/`
+
+דף אחד בעברית שמריץ את שלוש שאילתות המחקר מול Atlas בזמן אמת ומציג טבלאות, כולל ה-pipeline של כל שאלה. פרוס ב-Netlify:
+
+- `app/public/index.html` — ממשק (ללא build, ללא ספריות).
+- `app/netlify/functions/query.js` — Netlify Function שמתחברת ל-Atlas עם `MONGODB_URI` ממשתני הסביבה (משתמש **קריאה בלבד**) ומריצה את ה-pipeline מתוך `questions.json`, שנוצר מ-`mongodb/pipelines.js`.
+- `app/netlify.toml`, `app/package.json` — הגדרות פריסה (Base directory: `app`).
+
+פריסה: Netlify → Import from GitHub → repo זה → Base directory `app` → Environment variable `MONGODB_URI` → Deploy. ב-Atlas יש לאפשר גישת רשת לכתובות Netlify (Network Access → Allow access from anywhere) ולהשתמש במשתמש עם הרשאת `read` בלבד על `nosql_procurement_assignment`.
+
 ## תחום האיפוס
 
 סקריפט ההקמה ניתן להרצה חוזרת. הוא מחליף רק את שלושת ה-Collections הבאים בתוך `nosql_procurement_assignment`:

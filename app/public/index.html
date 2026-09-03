@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ניהול צורך, מלאי והזמנות · NoSQL</title>
+<style>
+  :root{--ink:#102A43;--muted:#52667A;--line:#D5DEE7;--bg:#F5F8FB;--card:#FFFFFF;--blue:#2563EB;--blue-soft:#EAF2FF;--teal:#087F8C;--amber:#D97706;--amber-soft:#FFF4D6;--purple:#7C3AED;--purple-soft:#F1EAFE;--green:#15803D;--green-soft:#E8F7EC;--red:#B42318;--red-soft:#FDECEC}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Arial,"Noto Sans Hebrew",system-ui,sans-serif;background:var(--bg);color:var(--ink);line-height:1.5}
+  header{background:var(--card);border-bottom:1px solid var(--line);padding:20px clamp(16px,4vw,48px)}
+  header h1{margin:0 0 4px;font-size:clamp(20px,2.6vw,28px)}
+  header p{margin:0;color:var(--muted)}
+  header a{color:var(--blue);text-decoration:none}
+  main{max-width:1180px;margin:0 auto;padding:24px clamp(16px,4vw,48px) 48px}
+  .status{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:24px}
+  .chip{background:var(--card);border:1px solid var(--line);border-radius:999px;padding:6px 14px;font-size:14px}
+  .chip b{color:var(--blue)}
+  .chip.err{background:var(--red-soft);border-color:var(--red);color:var(--red)}
+  .chip.ok{background:var(--green-soft);border-color:var(--green);color:var(--green)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px 22px;margin-bottom:20px}
+  .card h2{margin:0 0 4px;font-size:19px;display:flex;align-items:center;gap:10px}
+  .num{display:inline-grid;place-items:center;width:32px;height:32px;border-radius:50%;background:var(--blue-soft);color:var(--blue);font-size:15px;font-weight:700}
+  .card p{margin:0 0 14px;color:var(--muted);font-size:14.5px}
+  .row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+  button{font:inherit;border:0;border-radius:10px;padding:9px 18px;cursor:pointer;font-weight:700}
+  .run{background:var(--blue);color:#fff}
+  .run:disabled{opacity:.55;cursor:wait}
+  .ghost{background:var(--blue-soft);color:var(--blue)}
+  .meta{color:var(--muted);font-size:13.5px}
+  .tbl{overflow-x:auto;margin-top:14px}
+  table{border-collapse:collapse;width:100%;font-size:14px;background:#fff}
+  th,td{border:1px solid var(--line);padding:7px 10px;text-align:right;white-space:nowrap}
+  th{background:var(--bg);font-weight:700}
+  td.n{font-family:Menlo,"Courier New",monospace;direction:ltr;text-align:left}
+  td.hot{background:var(--amber-soft);font-weight:700}
+  pre{direction:ltr;text-align:left;background:#F6F8FA;border:1px solid var(--line);border-radius:10px;padding:12px;font:12px/1.45 Menlo,"Courier New",monospace;overflow:auto;max-height:420px;margin:12px 0 0}
+  .hidden{display:none}
+  .empty{color:var(--muted);padding:14px 0}
+  footer{color:var(--muted);font-size:13px;text-align:center;padding:12px}
+  .badge{font-size:12px;color:var(--muted);border:1px solid var(--line);border-radius:6px;padding:2px 8px;font-family:Menlo,"Courier New",monospace;direction:ltr}
+</style>
+</head>
+<body>
+<header>
+  <h1>מערכת לניהול צורך, מלאי והזמנות של פריטים מוגבלי חיי מדף</h1>
+  <p>עבודת סיכום NoSQL · מתן דידי · רץ מול MongoDB Atlas בזמן אמת ·
+     <a href="https://github.com/matandidi/nosql-procurement-assignment" target="_blank" rel="noopener">קוד, סקריפטים ותרשימים ב-GitHub</a></p>
+</header>
+<main>
+  <div class="status" id="status"><span class="chip">בודק חיבור ל-Atlas…</span></div>
+  <div id="questions"></div>
+</main>
+<footer>כל הנתונים במערכת פיקטיביים. הגישה למסד היא בקריאה בלבד דרך Netlify Function; אין פרטי חיבור בדפדפן.</footer>
+
+<script>
+const API = '/.netlify/functions/query';
+const statusEl = document.getElementById('status');
+const questionsEl = document.getElementById('questions');
+
+const fmt = (key, value) => {
+  if (value === null || value === undefined) return '—';
+  if (Array.isArray(value)) return value.join(', ');
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(value)) return value.slice(0, 10);
+  return String(value);
+};
+const isNumeric = (v) => typeof v === 'number' || (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}/.test(v));
+
+function chip(text, cls = '') { const s = document.createElement('span'); s.className = 'chip ' + cls; s.innerHTML = text; return s; }
+
+function renderTable(container, columns, rows, hotKey) {
+  container.innerHTML = '';
+  if (!rows.length) { container.innerHTML = '<div class="empty">אין תוצאות.</div>'; return; }
+  const cols = columns.filter(([key]) => rows.some(r => key in r));
+  const table = document.createElement('table');
+  table.innerHTML = '<thead><tr>' + cols.map(([, label]) => `<th>${label}</th>`).join('') + '</tr></thead>';
+  const tbody = document.createElement('tbody');
+  const max = hotKey ? Math.max(...rows.map(r => Number(r[hotKey]) || 0)) : null;
+  for (const row of rows) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = cols.map(([key]) => {
+      const v = row[key];
+      const cls = [isNumeric(v) ? 'n' : '', hotKey && key === hotKey && Number(v) === max ? 'hot' : ''].join(' ').trim();
+      return `<td class="${cls}">${fmt(key, v)}</td>`;
+    }).join('');
+    tbody.appendChild(tr);
+  }
+  table.appendChild(tbody);
+  container.appendChild(table);
+}
+
+const HOT = { q1: 'shortage_quantity', q2: 'at_risk_quantity', q3: 'total_delayed_quantity' };
+
+function buildCard(q, index) {
+  const card = document.createElement('section');
+  card.className = 'card';
+  card.innerHTML = `
+    <h2><span class="num">${index + 1}</span>${q.title}</h2>
+    <p>${q.summary} <span class="badge">db.${q.collection}.aggregate(…)</span></p>
+    <div class="row">
+      <button class="run">הרץ שאילתה</button>
+      <button class="ghost">הצג pipeline</button>
+      <span class="meta"></span>
+    </div>
+    <pre class="hidden"></pre>
+    <div class="tbl"></div>`;
+  const [runBtn, pipeBtn] = card.querySelectorAll('button');
+  const meta = card.querySelector('.meta');
+  const pre = card.querySelector('pre');
+  const tbl = card.querySelector('.tbl');
+  let pipelineText = null;
+
+  runBtn.addEventListener('click', async () => {
+    runBtn.disabled = true; meta.textContent = 'מריץ ב-Atlas…';
+    try {
+      const res = await fetch(`${API}?q=${q.id}&pipeline=1`);
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error);
+      pipelineText = JSON.stringify(data.pipeline, null, 2);
+      pre.textContent = pipelineText;
+      renderTable(tbl, q.columns, data.rows, HOT[q.id]);
+      const total = q.id === 'q2' ? ` · סה"כ ${data.rows.reduce((a, r) => a + (r.at_risk_quantity || 0), 0)} יחידות בסיכון` : '';
+      meta.textContent = `${data.count} תוצאות${total} · ${data.ms} ms`;
+    } catch (err) {
+      meta.textContent = ''; tbl.innerHTML = `<div class="empty">שגיאה: ${err.message}</div>`;
+    } finally { runBtn.disabled = false; }
+  });
+  pipeBtn.addEventListener('click', async () => {
+    if (pipelineText === null) {
+      const res = await fetch(`${API}?q=${q.id}&pipeline=1`); const data = await res.json();
+      if (data.ok) { pipelineText = JSON.stringify(data.pipeline, null, 2); pre.textContent = pipelineText; }
+    }
+    pre.classList.toggle('hidden');
+    pipeBtn.textContent = pre.classList.contains('hidden') ? 'הצג pipeline' : 'הסתר pipeline';
+  });
+  return card;
+}
+
+(async () => {
+  try {
+    const res = await fetch(API);
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error);
+    statusEl.innerHTML = '';
+    statusEl.append(chip('מחובר ל-Atlas', 'ok'),
+      chip(`items <b>${data.counts.items}</b>`), chip(`purchase_orders <b>${data.counts.purchase_orders}</b>`), chip(`suppliers <b>${data.counts.suppliers}</b>`),
+      chip(`${data.ms} ms`));
+    data.questions.forEach((q, i) => questionsEl.appendChild(buildCard(q, i)));
+  } catch (err) {
+    statusEl.innerHTML = '';
+    statusEl.append(chip('אין חיבור ל-Atlas: ' + err.message, 'err'));
+  }
+})();
+</script>
+</body>
+</html>

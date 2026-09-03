@@ -1,0 +1,9 @@
+{
+  "name": "nosql-procurement-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Web front-end for the NoSQL final assignment: runs the three research pipelines against MongoDB Atlas",
+  "dependencies": {
+    "mongodb": "^6.9.0"
+  }
+}
