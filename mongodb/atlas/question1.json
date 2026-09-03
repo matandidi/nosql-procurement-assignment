@@ -1,0 +1,187 @@
+[
+  {
+    "$set": {
+      "all_requirements": "$annual_requirements"
+    }
+  },
+  {
+    "$lookup": {
+      "from": "purchase_orders",
+      "let": {
+        "lookup_item_id": "$item_id"
+      },
+      "pipeline": [
+        {
+          "$match": {
+            "status": {
+              "$in": [
+                "open",
+                "partial",
+                "delayed"
+              ]
+            }
+          }
+        },
+        {
+          "$unwind": "$lines"
+        },
+        {
+          "$match": {
+            "$expr": {
+              "$eq": [
+                "$lines.item_id",
+                "$$lookup_item_id"
+              ]
+            }
+          }
+        },
+        {
+          "$project": {
+            "_id": 0,
+            "expected_delivery_date": 1,
+            "outstanding_quantity": {
+              "$subtract": [
+                "$lines.ordered_quantity",
+                "$lines.delivered_quantity"
+              ]
+            }
+          }
+        }
+      ],
+      "as": "receipts"
+    }
+  },
+  {
+    "$unwind": "$annual_requirements"
+  },
+  {
+    "$set": {
+      "valid_initial_stock": {
+        "$sum": {
+          "$map": {
+            "input": {
+              "$filter": {
+                "input": "$inventory_batches",
+                "as": "batch",
+                "cond": {
+                  "$gte": [
+                    "$$batch.expiry_date",
+                    "$annual_requirements.required_by_date"
+                  ]
+                }
+              }
+            },
+            "as": "valid_batch",
+            "in": "$$valid_batch.quantity"
+          }
+        }
+      },
+      "cumulative_need": {
+        "$sum": {
+          "$map": {
+            "input": {
+              "$filter": {
+                "input": "$all_requirements",
+                "as": "requirement",
+                "cond": {
+                  "$lte": [
+                    "$$requirement.year",
+                    "$annual_requirements.year"
+                  ]
+                }
+              }
+            },
+            "as": "cumulative_requirement",
+            "in": "$$cumulative_requirement.total_required"
+          }
+        }
+      },
+      "timely_receipts": {
+        "$sum": {
+          "$map": {
+            "input": {
+              "$filter": {
+                "input": "$receipts",
+                "as": "receipt",
+                "cond": {
+                  "$and": [
+                    {
+                      "$lte": [
+                        "$$receipt.expected_delivery_date",
+                        "$annual_requirements.required_by_date"
+                      ]
+                    },
+                    {
+                      "$gt": [
+                        "$$receipt.outstanding_quantity",
+                        0
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            "as": "timely_receipt",
+            "in": "$$timely_receipt.outstanding_quantity"
+          }
+        }
+      }
+    }
+  },
+  {
+    "$set": {
+      "projected_balance": {
+        "$subtract": [
+          {
+            "$add": [
+              "$valid_initial_stock",
+              "$timely_receipts"
+            ]
+          },
+          "$cumulative_need"
+        ]
+      }
+    }
+  },
+  {
+    "$set": {
+      "shortage_quantity": {
+        "$max": [
+          {
+            "$multiply": [
+              "$projected_balance",
+              -1
+            ]
+          },
+          0
+        ]
+      }
+    }
+  },
+  {
+    "$match": {
+      "shortage_quantity": {
+        "$gt": 0
+      }
+    }
+  },
+  {
+    "$sort": {
+      "item_id": 1,
+      "annual_requirements.year": 1
+    }
+  },
+  {
+    "$project": {
+      "_id": 0,
+      "item_id": 1,
+      "manufacturer_part_number": 1,
+      "item_name": 1,
+      "year": "$annual_requirements.year",
+      "valid_initial_stock": 1,
+      "timely_receipts": 1,
+      "cumulative_need": 1,
+      "shortage_quantity": 1
+    }
+  }
+]

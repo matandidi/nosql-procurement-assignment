@@ -1,0 +1,134 @@
+[
+  {
+    "$match": {
+      "status": {
+        "$in": [
+          "open",
+          "partial",
+          "delayed"
+        ]
+      }
+    }
+  },
+  {
+    "$unwind": "$lines"
+  },
+  {
+    "$set": {
+      "at_risk_quantity": {
+        "$subtract": [
+          "$lines.ordered_quantity",
+          "$lines.delivered_quantity"
+        ]
+      }
+    }
+  },
+  {
+    "$match": {
+      "at_risk_quantity": {
+        "$gt": 0
+      }
+    }
+  },
+  {
+    "$lookup": {
+      "from": "items",
+      "let": {
+        "lookup_item_id": "$lines.item_id",
+        "lookup_year": "$lines.required_for_year"
+      },
+      "pipeline": [
+        {
+          "$match": {
+            "$expr": {
+              "$eq": [
+                "$item_id",
+                "$$lookup_item_id"
+              ]
+            }
+          }
+        },
+        {
+          "$unwind": "$annual_requirements"
+        },
+        {
+          "$match": {
+            "$expr": {
+              "$eq": [
+                "$annual_requirements.year",
+                "$$lookup_year"
+              ]
+            }
+          }
+        },
+        {
+          "$project": {
+            "_id": 0,
+            "required_by_date": "$annual_requirements.required_by_date"
+          }
+        }
+      ],
+      "as": "matched_item"
+    }
+  },
+  {
+    "$unwind": "$matched_item"
+  },
+  {
+    "$match": {
+      "$expr": {
+        "$gt": [
+          "$expected_delivery_date",
+          "$matched_item.required_by_date"
+        ]
+      }
+    }
+  },
+  {
+    "$lookup": {
+      "from": "suppliers",
+      "localField": "supplier_id",
+      "foreignField": "supplier_id",
+      "as": "matched_supplier"
+    }
+  },
+  {
+    "$unwind": "$matched_supplier"
+  },
+  {
+    "$group": {
+      "_id": {
+        "supplier_id": "$supplier_id",
+        "supplier_name": "$matched_supplier.supplier_name"
+      },
+      "total_delayed_quantity": {
+        "$sum": "$at_risk_quantity"
+      },
+      "delayed_purchase_orders": {
+        "$addToSet": "$po_number"
+      },
+      "delay_reasons": {
+        "$addToSet": "$delay_reason"
+      }
+    }
+  },
+  {
+    "$project": {
+      "_id": 0,
+      "supplier_id": "$_id.supplier_id",
+      "supplier_name": "$_id.supplier_name",
+      "total_delayed_quantity": 1,
+      "delayed_purchase_order_count": {
+        "$size": "$delayed_purchase_orders"
+      },
+      "delayed_purchase_orders": 1,
+      "delay_reasons": 1
+    }
+  },
+  {
+    "$sort": {
+      "total_delayed_quantity": -1,
+      "supplier_id": 1
+    }
+  }
+]
