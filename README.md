@@ -82,6 +82,8 @@ VALIDATION PASSED
 
 ## אפליקציית ווב (בונוס) — `app/`
 
+**האתר החי:** https://nosql-procurement-matan.netlify.app
+
 דף אחד בעברית שמריץ את שלוש שאילתות המחקר מול Atlas בזמן אמת ומציג טבלאות, כולל ה-pipeline של כל שאלה. פרוס ב-Netlify:
 
 - `app/public/index.html` — ממשק (ללא build, ללא ספריות).
