@@ -6,7 +6,7 @@
 |---|---|---|
 | `question1.json` | `items` | אילו פריטים צפויים להיכנס לחוסר, ובאיזו שנה? |
 | `question2.json` | `purchase_orders` | אילו שורות הזמנה צפויות להגיע אחרי מועד הצורך? |
-| `question3.json` | `purchase_orders` | אילו ספקים אחראים לכמות המאוחרת הגדולה ביותר? |
+| `question3.json` | `purchase_orders` | אצל אילו ספקים מרוכזת הכמות המאוחרת הגדולה ביותר? |
 
 צעדים: Atlas → Data Explorer → מסד `nosql_procurement_assignment` → האוסף המתאים → לשונית **Aggregations** → מעבר למצב **Text** → הדבקת תוכן הקובץ → **Run**.
 

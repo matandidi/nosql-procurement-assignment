@@ -1,9 +1,10 @@
-// Reusable aggregation pipelines for the three research questions.
+// Loaded by the mongosh scripts. The web app and Atlas JSON copies are checked in app/tests.
 
 globalThis.assignmentPipelines = {
   question1: [
     {
       $set: {
+        // Keep the full planning horizon before unwinding one requirement year per row.
         all_requirements: '$annual_requirements'
       }
     },
@@ -62,6 +63,7 @@ globalThis.assignmentPipelines = {
             }
           }
         },
+        // Earlier years remain part of the need; stock is not reset at the start of each year.
         cumulative_need: {
           $sum: {
             $map: {
@@ -82,6 +84,7 @@ globalThis.assignmentPipelines = {
             }
           }
         },
+        // Only the undelivered balance is added, so partial deliveries are not counted twice.
         timely_receipts: {
           $sum: {
             $map: {
@@ -143,6 +146,7 @@ globalThis.assignmentPipelines = {
     }
   ],
 
+  // at_risk_quantity is the open quantity arriving late, not the shortage calculated in question 1.
   question2: [
     {
       $match: {
@@ -287,6 +291,7 @@ globalThis.assignmentPipelines = {
           supplier_name: '$matched_supplier.supplier_name'
         },
         total_delayed_quantity: { $sum: '$at_risk_quantity' },
+        // Count an order once even when more than one of its lines is late.
         delayed_purchase_orders: { $addToSet: '$po_number' },
         delay_reasons: { $addToSet: '$delay_reason' }
       }

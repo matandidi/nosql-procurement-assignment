@@ -1,5 +1,5 @@
-// Netlify Function: runs one of the three research pipelines (or a status check) against Atlas.
-// Configuration comes only from the environment: MONGODB_URI must belong to a READ-ONLY user.
+// Only the three stored queries are available through this endpoint.
+// MONGODB_URI is configured in Netlify with read access to the assignment database.
 const { MongoClient } = require('mongodb');
 const questions = require('./questions.json');
 
@@ -10,6 +10,7 @@ const HEADERS = {
   'Access-Control-Allow-Origin': '*'
 };
 
+// Netlify may reuse this function instance across requests.
 let clientPromise;
 
 function getClient() {
@@ -20,7 +21,11 @@ function getClient() {
     clientPromise = new MongoClient(process.env.MONGODB_URI, {
       serverSelectionTimeoutMS: 8000,
       maxPoolSize: 3
-    }).connect();
+    }).connect().catch((error) => {
+      // Let the next request reconnect after a temporary connection failure.
+      clientPromise = undefined;
+      throw error;
+    });
   }
   return clientPromise;
 }
@@ -33,6 +38,10 @@ exports.handler = async (event) => {
   const params = event.queryStringParameters || {};
   const action = params.q || 'status';
   const started = Date.now();
+
+  if (action !== 'status' && !Object.hasOwn(questions, action)) {
+    return reply(400, { ok: false, error: `unknown question: ${action}` });
+  }
 
   try {
     const client = await getClient();
@@ -54,9 +63,6 @@ exports.handler = async (event) => {
     }
 
     const question = questions[action];
-    if (!question) {
-      return reply(400, { ok: false, error: `unknown question: ${action}` });
-    }
     const rows = await db.collection(question.collection).aggregate(question.pipeline).toArray();
     return reply(200, {
       ok: true,

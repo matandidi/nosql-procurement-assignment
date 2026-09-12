@@ -1,5 +1,5 @@
-// Validation gate for the NoSQL final assignment.
-// Run after connecting with mongosh. The script never stores credentials.
+// Run after 01-create-and-seed.js in mongosh.
+// Checks the sample data and compares all three query results with the expected rows.
 
 var validationDb = db.getSiblingDB('nosql_procurement_assignment');
 
