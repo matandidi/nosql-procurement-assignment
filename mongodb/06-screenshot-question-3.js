@@ -1,4 +1,4 @@
-// Clean, presentation-friendly output for research question 3.
+// Displays the main result columns for question 3 as a console table.
 console.clear();
 load(`${__dirname}/pipelines.js`);
 

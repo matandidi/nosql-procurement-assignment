@@ -1,6 +1,5 @@
-// Creates a clean, reproducible MongoDB dataset for the NoSQL final assignment.
-// Scope warning: only the three named collections in this assignment database
-// are replaced. Credentials and connection details are never stored here.
+// Resets items, purchase_orders and suppliers in nosql_procurement_assignment.
+// Run only when you want to replace those collections with the sample data.
 
 (() => {
   load(`${__dirname}/fixtures.js`);

@@ -1,3 +1,5 @@
+// All sample requirements use June 30 as the required-by date.
+// safety_stock is added each year in this model; it is not a minimum remaining balance.
 function requirement(year, plannedUsage, safetyStock, attritionReserve) {
   return {
     year,

@@ -1,4 +1,4 @@
-// Executes and prints the three research-question results.
+// Run in mongosh after loading the sample data. See expected-results.md for the output.
 
 (() => {
   load(`${__dirname}/pipelines.js`);
@@ -9,12 +9,12 @@
     .aggregate(assignmentPipelines.question1)
     .forEach((row) => printjson(row));
 
-  print('\nשאלת מחקר 2: אילו הזמנות צפויות להגיע אחרי מועד הצורך?');
+  print('\nשאלת מחקר 2: אילו שורות הזמנה צפויות להגיע אחרי מועד הצורך?');
   researchDb.purchase_orders
     .aggregate(assignmentPipelines.question2)
     .forEach((row) => printjson(row));
 
-  print('\nשאלת מחקר 3: אילו ספקים אחראים לכמות המאוחרת הגדולה ביותר?');
+  print('\nשאלת מחקר 3: אצל אילו ספקים מרוכזת הכמות המאוחרת הגדולה ביותר?');
   researchDb.purchase_orders
     .aggregate(assignmentPipelines.question3)
     .forEach((row) => printjson(row));
